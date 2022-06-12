@@ -1,2 +1,79 @@
 ---
 # tasks file for role_beegfs
+- name: Check OS version and family
+  ansible.builtin.fail:
+    msg: "This role can only be run against Ubuntu 20. {{ ansible_distribution }} {{ ansible_distribution_major_version }} is not supported."
+  when: (ansible_distribution|lower == 'ubuntu' and ansible_distribution_major_version is version_compare('20', '!='))
+
+- name: "Check OS version and family"
+  ansible.builtin.debug:
+    msg: "PASS | This role can only be executed on Ubuntu 20 operating systems, detected {{ ansible_distribution }} {{ ansible_distribution_major_version }}"
+  when: (ansible_distribution|lower == 'ubuntu' and ansible_distribution_major_version is version_compare('20', '=='))
+
+- name: Install beegfs key.
+  ansible.builtin.apt_key:
+    url: https://www.beegfs.io/release/beegfs_{{ version }}/gpg/DEB-GPG-KEY-beegfs
+    state: present
+
+- name: Download beegfs-deb9.list
+  ansible.builtin.get_url:
+    url: "https://www.beegfs.io/release/beegfs_{{ version }}/dists/beegfs-deb9.list"
+    dest: "/etc/apt/sources.list.d/"
+
+- name: Install apt-transport-https.
+  ansible.builtin.apt:
+    - name: apt-transport-https
+      state: present
+      update_cache: yes
+
+- name: Install beegfs packages.
+  ansible.builtin.apt:
+    name:
+      - beegfs-utils
+      - libbeegfs-ib
+      - beegfs-helperd
+      - beegfs-client
+    state: present
+    update_cache: yes
+
+- name: Include OFED in buildArgs.
+  ansible.builtin.lineinfile:
+    path: /etc/beegfs/beegfs-client-autobuild.conf
+    regexp: "^buildArgs="
+    line: "buildArgs=-j8 BEEGFS_OPENTK_IBVERBS=1 OFED_INCLUDE_PATH=/usr/src/ofa_kernel/default/include"
+    state: present
+
+- name: Add management host to client config.
+  ansible.builtin.lineinfile:
+    path: /etc/beegfs/beegfs-client.conf
+    regexp: "^sysMgmtdHost"
+    line: "sysMgmtdHost = {{ mgmtdHost }}"
+    state: present
+
+- name: Add mount point to client config.
+  ansible.builtin.lineinfile:
+    path: /etc/beegfs/beegfs-mounts.conf
+    search_string: "/etc/beegfs/beegfs-client.conf"
+    line: "/sbdata /etc/beegfs/beegfs-client.conf"
+    state: present
+
+- name: Rebuild client.
+  ansible.builtin.command: /etc/init.d/beegfs-client rebuild
+
+- name: Start beegfs-helperd.
+  ansible.builtin.systemd:
+    name: beegfs-helperd
+    state: started
+
+- name: Start beegfs-client
+  ansible.builtin.systemd:
+    name: beegfs-client
+    state: started
+
+- name: Capture output beegfs-net
+  ansible.builtin.command: beegfs-net
+  register: bee_out
+
+- name: Print beegfs-output output.
+  ansible.builtin.debug:
+    msg: "{{ bee_out.stdout_lines }}"
