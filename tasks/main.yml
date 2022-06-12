@@ -25,6 +25,7 @@
     name: apt-transport-https
     state: present
     update_cache: yes
+  retries: 3
 
 - name: Install beegfs packages.
   ansible.builtin.apt:
@@ -35,6 +36,7 @@
       - beegfs-client
     state: present
     update_cache: yes
+  retries: 3
 
 - name: Include OFED in buildArgs.
   ansible.builtin.lineinfile:
