@@ -22,9 +22,9 @@
 
 - name: Install apt-transport-https.
   ansible.builtin.apt:
-    - name: apt-transport-https
-      state: present
-      update_cache: yes
+    name: apt-transport-https
+    state: present
+    update_cache: yes
 
 - name: Install beegfs packages.
   ansible.builtin.apt:
